@@ -12,6 +12,12 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-
 .specstory/
+
+spec/
+.claude/
+.specify/
+CLAUDE.md
+venv_py310_backup/
+tau2-bench/
 cal.com/
