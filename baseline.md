@@ -1,3 +1,19 @@
+## Final baseline — 3 complete trials (April 22, 2026)
+
+| Metric | Value |
+|--------|-------|
+| Mean pass@1 | 0.5443 |
+| 95% CI | [0.4867, 0.6020] |
+| Trials | 3 |
+| Tasks per trial | 30 |
+| Model | gpt-4o-mini via OpenRouter |
+| Total cost | $0.52 |
+| Cost per task | $0.0058 |
+
+Published τ²-Bench retail reference: 0.42 (GPT-5 class)
+Our result on gpt-4o-mini: 0.5443 — exceeds reference.
+CI does not overlap 0.42, confirming result is not noise.
+
 ## Final Result — 30-task run (April 22, 2026)
 
 | Metric | Value |
