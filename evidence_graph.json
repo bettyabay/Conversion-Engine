@@ -1,0 +1,126 @@
+[
+  {
+    "claim_id": "baseline_pass_at_1",
+    "description": "Mean pass@1 across 3 complete trials on tau2-bench retail domain",
+    "value": 0.5443,
+    "unit": "fraction",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "statistics.mean([0.50, 0.60, 0.533])",
+    "verified": true
+  },
+  {
+    "claim_id": "baseline_ci_95_lower",
+    "description": "Lower bound of 95% confidence interval for pass@1",
+    "value": 0.4867,
+    "unit": "fraction",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "mean - 1.96 * (stdev / sqrt(n))",
+    "verified": true
+  },
+  {
+    "claim_id": "baseline_ci_95_upper",
+    "description": "Upper bound of 95% confidence interval for pass@1",
+    "value": 0.6020,
+    "unit": "fraction",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "mean + 1.96 * (stdev / sqrt(n))",
+    "verified": true
+  },
+  {
+    "claim_id": "baseline_total_cost",
+    "description": "Total LLM cost for 3 complete baseline trials",
+    "value": 0.52,
+    "unit": "USD",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "sum(run.total_cost_usd for run in complete_trials)",
+    "verified": true
+  },
+  {
+    "claim_id": "baseline_cost_per_task",
+    "description": "Average LLM cost per task across baseline trials",
+    "value": 0.0058,
+    "unit": "USD",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "mean(run.cost_per_task for run in complete_trials)",
+    "verified": true
+  },
+  {
+    "claim_id": "baseline_wall_time_p50",
+    "description": "Median wall time per trial run",
+    "value": 533.4,
+    "unit": "seconds",
+    "source_type": "score_log_computation",
+    "source_refs": [
+      "baseline_dev_20260422_134932",
+      "baseline_dev_trial2_20260422_185153",
+      "baseline_dev_trial3_20260422_190106"
+    ],
+    "derivation": "statistics.median([537.5, 462.3, 533.4])",
+    "verified": true
+  },
+  {
+    "claim_id": "trace_log_turns",
+    "description": "Total conversation turns logged in trace_log.jsonl",
+    "value": 2973,
+    "unit": "turns",
+    "source_type": "trace_log_count",
+    "source_refs": ["eval/trace_log.jsonl"],
+    "derivation": "line count of trace_log.jsonl after trial 3",
+    "verified": true
+  },
+  {
+    "claim_id": "published_reference_pass_at_1",
+    "description": "Published tau2-bench retail pass@1 reference for GPT-5 class",
+    "value": 0.42,
+    "unit": "fraction",
+    "source_type": "published_reference",
+    "source_refs": ["tau2-bench leaderboard Feb 2026", "TRP1 challenge document Table 1"],
+    "derivation": "Cited directly from challenge document baseline numbers table",
+    "verified": true
+  },
+  {
+    "claim_id": "hubspot_contact_id",
+    "description": "HubSpot contact ID for Turing Signal test contact",
+    "value": "761306415310",
+    "unit": "hubspot_id",
+    "source_type": "hubspot_api_response",
+    "source_refs": ["smoke_test/test_hubspot.py"],
+    "derivation": "response.id from HubSpot contacts.basic_api.create()",
+    "verified": true
+  },
+  {
+    "claim_id": "langfuse_trace_cost",
+    "description": "Cost of one lead processing trace in Langfuse",
+    "value": 0.00711,
+    "unit": "USD",
+    "source_type": "langfuse_trace",
+    "source_refs": ["53a51e02d2c0eb00"],
+    "derivation": "generation cost: (820 input * $3/1M) + (310 output * $15/1M)",
+    "verified": true
+  }
+]
