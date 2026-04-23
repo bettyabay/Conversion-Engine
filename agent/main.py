@@ -510,3 +510,45 @@ async def enrich_prospect(request: Request):
 
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
+
+
+    @app.post("/trigger/sms")
+    async def trigger_sms(request: Request):
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+
+        phone   = data.get("phone", "+254700000000")
+        company = data.get("company", "Turing Signal")
+
+        trace = create_trace(
+            name="sms_outreach_triggered",
+            metadata={"phone": phone, "company": company}
+        )
+
+        try:
+            import africastalking
+            africastalking.initialize(
+                username=os.getenv("AT_USERNAME", "sandbox"),
+                api_key=os.getenv("AT_API_KEY")
+            )
+            sms = africastalking.SMS
+            response = sms.send(
+                message=f"Tenacious Consulting: I noticed {company} is scaling its engineering team. Worth a 30-min call? Reply STOP to opt out.",
+                recipients=[phone],
+                sender_id=os.getenv("AT_SHORTCODE")
+            )
+            print(f"[AT] SMS sent to {phone}: {response}")
+            return JSONResponse({
+                "status": "sms_sent",
+                "trace_id": trace.id,
+                "response": str(response)
+            })
+        except Exception as e:
+            print(f"[AT] SMS failed: {e}")
+            return JSONResponse({
+                "status": "error",
+                "message": str(e),
+                "trace_id": trace.id
+            }, status_code=500)

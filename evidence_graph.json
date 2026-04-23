@@ -122,5 +122,17 @@
     "source_refs": ["53a51e02d2c0eb00"],
     "derivation": "generation cost: (820 input * $3/1M) + (310 output * $15/1M)",
     "verified": true
-  }
+  },
+
+{
+  "claim_id": "sms_delivery_confirmed",
+  "description": "Africa's Talking SMS sent successfully in sandbox",
+  "value": "ATXid_dd526f4102c1e1555808f30fe02d19bd",
+  "unit": "message_id",
+  "source_type": "africastalking_api_response",
+  "source_refs": ["test_sms.py", "AT sandbox account shortcode 21415"],
+  "derivation": "sms.send() returned statusCode=101 Success",
+  "verified": true
+}
+
 ]
