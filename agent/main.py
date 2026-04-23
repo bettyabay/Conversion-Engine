@@ -420,15 +420,20 @@ async def enrich_prospect(request: Request):
 
         hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
 
+        from hubspot.crm.contacts.models import PublicObjectSearchRequest, Filter, FilterGroup
+
+        filter_obj = Filter(
+            property_name="email",
+            operator="EQ",
+            value=email
+        )
+        filter_group = FilterGroup(filters=[filter_obj])
         search = hs.crm.contacts.search_api.do_search(
             public_object_search_request=PublicObjectSearchRequest(
-                filters=[{
-                    "propertyName": "email",
-                    "operator": "EQ",
-                    "value": email
-                }]
+                filter_groups=[filter_group]
             )
         )
+        
 
         if search.results:
             contact_id = search.results[0].id
@@ -457,52 +462,51 @@ async def enrich_prospect(request: Request):
 
     @app.post("/setup/hubspot-properties")
 
+    async def setup_hubspot_properties():
+        """Creates all custom contact properties in HubSpot."""
+        try:
+            import hubspot
+            from hubspot.crm.properties import ModelProperty, PropertyCreate
 
-async def setup_hubspot_properties():
-    """Creates all custom contact properties in HubSpot."""
-    try:
-        import hubspot
-        from hubspot.crm.properties import ModelProperty, PropertyCreate
+            hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
 
-        hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
+            properties_to_create = [
+                ("icp_segment",          "ICP Segment",          "string"),
+                ("segment_confidence",   "Segment Confidence",   "string"),
+                ("ai_maturity_score",    "AI Maturity Score",    "string"),
+                ("qualification_status", "Qualification Status", "string"),
+                ("hiring_signal_summary","Hiring Signal Summary","string"),
+                ("competitor_gap_note",  "Competitor Gap Note",  "string"),
+                ("last_enriched_at",     "Last Enriched At",     "string"),
+                ("trace_id",             "Trace ID",             "string"),
+            ]
 
-        properties_to_create = [
-            ("icp_segment",          "ICP Segment",          "string"),
-            ("segment_confidence",   "Segment Confidence",   "string"),
-            ("ai_maturity_score",    "AI Maturity Score",    "string"),
-            ("qualification_status", "Qualification Status", "string"),
-            ("hiring_signal_summary","Hiring Signal Summary","string"),
-            ("competitor_gap_note",  "Competitor Gap Note",  "string"),
-            ("last_enriched_at",     "Last Enriched At",     "string"),
-            ("trace_id",             "Trace ID",             "string"),
-        ]
+            created = []
+            skipped = []
 
-        created = []
-        skipped = []
-
-        for name, label, field_type in properties_to_create:
-            try:
-                hs.crm.properties.core_api.create(
-                    object_type="contacts",
-                    property_create=PropertyCreate(
-                        name=name,
-                        label=label,
-                        type=field_type,
-                        field_type="text",
-                        group_name="contactinformation",
+            for name, label, field_type in properties_to_create:
+                try:
+                    hs.crm.properties.core_api.create(
+                        object_type="contacts",
+                        property_create=PropertyCreate(
+                            name=name,
+                            label=label,
+                            type=field_type,
+                            field_type="text",
+                            group_name="contactinformation",
+                        )
                     )
-                )
-                created.append(name)
-                print(f"[HubSpot] Created property: {name}")
-            except Exception as e:
-                skipped.append(name)
-                print(f"[HubSpot] Skipped {name}: {e}")
+                    created.append(name)
+                    print(f"[HubSpot] Created property: {name}")
+                except Exception as e:
+                    skipped.append(name)
+                    print(f"[HubSpot] Skipped {name}: {e}")
 
-        return JSONResponse({
-            "created": created,
-            "skipped": skipped,
-            "message": "HubSpot properties setup complete"
-        })
+            return JSONResponse({
+                "created": created,
+                "skipped": skipped,
+                "message": "HubSpot properties setup complete"
+            })
 
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
