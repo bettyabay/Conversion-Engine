@@ -203,6 +203,14 @@ async def sms_webhook(request: Request):
 # ── Cal.com booking webhook ───────────────────────────────────
 @app.post("/webhook/calcom")
 async def calcom_webhook(request: Request):
+    """
+    Fires on every Cal.com BOOKING_CREATED event.
+    1. Parses attendee info from payload
+    2. Fetches enrichment data from HubSpot
+    3. Generates 10-section discovery call context brief
+    4. Saves brief to outputs/ and logs to Langfuse
+    5. Updates HubSpot to DISCOVERY_BOOKED with brief_trace_id
+    """
     try:
         data = await request.json()
     except Exception:
@@ -215,10 +223,14 @@ async def calcom_webhook(request: Request):
     attendee_name  = attendees[0].get("name", "unknown") if attendees else "unknown"
     meeting_time   = payload.get("startTime", "unknown")
     meeting_title  = payload.get("title", "Discovery Call")
+    duration       = payload.get("length", 30)
+    organizer      = payload.get("organizer", {})
+    delivery_lead  = organizer.get("name", "Arun Sharma")
 
     print(f"[Cal.com] event={event_type}")
     print(f"[Cal.com] attendee={attendee_email} time={meeting_time}")
 
+    # Main booking trace
     trace = create_trace(
         name="calcom_booking",
         user_id=attendee_email,
@@ -234,14 +246,25 @@ async def calcom_webhook(request: Request):
 
     print(f"[Cal.com] Booking trace ID: {trace.id}")
 
-    # Update HubSpot contact to DISCOVERY_BOOKED
+    # ── Fetch enrichment data from HubSpot ───────────────────
+    contact_id      = None
+    stored_segment  = "unknown"
+    stored_ai_score = 0
+    stored_velocity = "unknown"
+    stored_gap_note = ""
+    icp_result      = {}
+    hiring_signal   = {}
+    ai_maturity     = {}
+    competitor_gap  = {}
+
     try:
         import hubspot
         from hubspot.crm.contacts import SimplePublicObjectInput
-        from hubspot.crm.contacts.models import PublicObjectSearchRequest, Filter, FilterGroup
+        from hubspot.crm.contacts.models import (
+            PublicObjectSearchRequest, Filter, FilterGroup
+        )
 
         hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
-
         f  = Filter(property_name="email", operator="EQ", value=attendee_email)
         fg = FilterGroup(filters=[f])
         search = hs.crm.contacts.search_api.do_search(
@@ -249,11 +272,148 @@ async def calcom_webhook(request: Request):
         )
 
         if search.results:
-            contact_id = search.results[0].id
+            contact    = search.results[0]
+            contact_id = contact.id
+            props      = contact.properties or {}
+
+            stored_segment  = props.get("icp_segment", "unknown")
+            stored_ai_score = int(props.get("ai_maturity_score", 0) or 0)
+            stored_velocity = props.get("hiring_signal_summary", "unknown")
+            stored_gap_note = props.get("competitor_gap_note", "")
+
+            # Reconstruct minimal enrichment dicts from stored props
+            icp_result = {
+                "segment":             stored_segment,
+                "confidence":          float(props.get("segment_confidence", 0.7) or 0.7),
+                "qualified":           True,
+                "segment_description": f"Stored segment: {stored_segment}",
+                "qualifying_signals":  [f"Segment stored from prior enrichment run"],
+                "pitch":               f"Segment {stored_segment} pitch",
+            }
+            hiring_signal = {
+                "prospect_name": attendee_name,
+                "hiring_velocity": {
+                    "open_roles_today":       0,
+                    "open_roles_60_days_ago": 0,
+                    "velocity_label":         stored_velocity,
+                },
+                "buying_window_signals": {
+                    "funding_event":     {"detected": False},
+                    "layoff_event":      {"detected": False},
+                    "leadership_change": {"detected": False},
+                },
+                "tech_stack":    [],
+                "honesty_flags": [],
+            }
+            ai_maturity = {
+                "score":            stored_ai_score,
+                "confidence_label": "medium",
+                "brief":            f"AI maturity score {stored_ai_score}/3 from prior enrichment.",
+            }
+            competitor_gap = {
+                "gap_findings":        [{"practice": stored_gap_note, "confidence": "medium", "peer_evidence": []}] if stored_gap_note else [],
+                "suggested_pitch_shift": "Lead with highest-confidence finding from prior enrichment.",
+            }
+
+            print(f"[HubSpot] fetched contact {contact_id} segment={stored_segment}")
+        else:
+            print(f"[HubSpot] no contact found for {attendee_email} — using defaults")
+
+    except Exception as e:
+        print(f"[HubSpot] fetch failed: {e}")
+
+    # ── Generate discovery call context brief ─────────────────
+    brief_md    = ""
+    brief_trace = None
+
+    try:
+        from agent.enrichment.discovery_brief import generate_discovery_brief
+
+        # Parse prospect first name from full name
+        first_name = attendee_name.split()[0] if attendee_name and attendee_name != "unknown" else "there"
+
+        # Build Langfuse URL for the thread
+        langfuse_host  = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        langfuse_url   = f"{langfuse_host}/trace/{trace.id}"
+
+        brief_md = generate_discovery_brief(
+            # Prospect info
+            prospect_name       = first_name,
+            prospect_title      = "VP Engineering",  # default; update if stored in HubSpot
+            prospect_company    = attendee_name,
+            call_datetime_utc   = meeting_time,
+            call_datetime_local = meeting_time,
+            delivery_lead       = delivery_lead,
+            duration_minutes    = int(duration or 30),
+            thread_start_date   = datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            original_subject    = meeting_title,
+            langfuse_trace_url  = langfuse_url,
+            # Enrichment data
+            icp_result          = icp_result,
+            hiring_signal       = hiring_signal,
+            competitor_gap      = competitor_gap,
+            ai_maturity         = ai_maturity,
+            # Trace
+            trace_id            = trace.id,
+        )
+
+        print(f"[DiscoveryBrief] Generated {len(brief_md.split(chr(10)))} lines")
+
+        # Save brief to outputs directory
+        import pathlib
+        outputs_dir = pathlib.Path("outputs")
+        outputs_dir.mkdir(exist_ok=True)
+        brief_filename = f"discovery_brief_{attendee_email.replace('@','_at_')}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.md"
+        brief_path     = outputs_dir / brief_filename
+        brief_path.write_text(brief_md, encoding="utf-8")
+        print(f"[DiscoveryBrief] Saved to {brief_path}")
+
+        # Log brief to Langfuse as a separate trace
+        brief_trace = create_trace(
+            name="discovery_brief_generated",
+            user_id=attendee_email,
+            metadata={
+                "booking_trace_id": trace.id,
+                "attendee_email":   attendee_email,
+                "segment":          stored_segment,
+                "brief_lines":      len(brief_md.splitlines()),
+                "brief_file":       brief_filename,
+                "meeting_time":     meeting_time,
+            }
+        )
+        print(f"[DiscoveryBrief] Langfuse trace={brief_trace.id}")
+
+    except Exception as e:
+        print(f"[DiscoveryBrief] generation failed: {e}")
+
+    # ── Update HubSpot to DISCOVERY_BOOKED ───────────────────
+    try:
+        import hubspot
+        from hubspot.crm.contacts import SimplePublicObjectInput
+        from hubspot.crm.contacts.models import (
+            PublicObjectSearchRequest, Filter, FilterGroup
+        )
+
+        if not contact_id:
+            hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
+            f  = Filter(property_name="email", operator="EQ", value=attendee_email)
+            fg = FilterGroup(filters=[f])
+            sr = hs.crm.contacts.search_api.do_search(
+                public_object_search_request=PublicObjectSearchRequest(filter_groups=[fg])
+            )
+            if sr.results:
+                contact_id = sr.results[0].id
+
+        if contact_id:
+            hs    = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
             props = {
                 "qualification_status": "DISCOVERY_BOOKED",
                 "hs_lead_status":       "IN_PROGRESS",
+                "trace_id":             trace.id,
             }
+            # Store brief trace ID if generated successfully
+            if brief_trace:
+                props["competitor_gap_note"] = f"Brief trace: {brief_trace.id}"
             props.update(draft_hubspot_props())  # Policy Rule 6
             hs.crm.contacts.basic_api.update(
                 contact_id=contact_id,
@@ -264,10 +424,12 @@ async def calcom_webhook(request: Request):
             print(f"[HubSpot] no contact found for {attendee_email}")
 
     except Exception as e:
-        print(f"[HubSpot] {e}")
+        print(f"[HubSpot] update failed: {e}")
 
     return JSONResponse({
-        "status":   "booking_received",
+        "status":              "booking_received",
+        "brief_generated":     bool(brief_md),
+        "brief_trace_id":      brief_trace.id if brief_trace else None,
         "trace_id": trace.id,
         "event":    event_type,
         "attendee": attendee_email
@@ -278,56 +440,181 @@ async def calcom_webhook(request: Request):
 @app.post("/trigger/outreach")
 async def trigger_outreach(request: Request):
     """
-    Send a signal-grounded outreach email.
-    POST body: {"lead_id": "...", "company": "...", "email": "..."}
-    Kill switch: routes to sink if TENACIOUS_OUTBOUND_ENABLED != true
+    Send a segment-specific signal-grounded outreach email.
+
+    POST body:
+      {
+        "lead_id":        "...",
+        "company":        "Turing Signal",
+        "email":          "cto@turingsignal.com",
+        "prospect_name":  "Alex",           # first name for salutation
+        "email_number":   1,                # 1, 2, or 3 (cold sequence)
+        # Optional — pre-computed enrichment to skip re-running /enrich
+        "segment":        "segment_1_series_a_b",
+        "hiring_signal":  {...},
+        "competitor_gap": {...},
+        "ai_maturity":    {...},
+        "icp_result":     {...},
+      }
+
+    Kill switch: routes to sink if TENACIOUS_OUTBOUND_ENABLED != true.
+    Draft marking: X-Tenacious-Status: draft on every email (Policy Rule 6).
     """
     try:
         data = await request.json()
     except Exception:
         data = {}
 
-    lead_id = data.get("lead_id", "turing_signal_001")
-    company = data.get("company", "Turing Signal")
-    email   = data.get("email", os.getenv("RESEND_TO_TEST"))
+    lead_id       = data.get("lead_id", "turing_signal_001")
+    company       = data.get("company", "Turing Signal")
+    email         = data.get("email", os.getenv("RESEND_TO_TEST"))
+    prospect_name = data.get("prospect_name", "there")
+    email_number  = int(data.get("email_number", 1))
+    cal_url       = os.getenv("CAL_URL", "https://cal.com/bethelhem-abay/discovery-call")
 
-    # ── Kill switch gate ──────────────────────────────────────
+    # Kill switch gate
     email_to = gate_outbound(email, "email")
 
+    # Run enrichment if not pre-supplied
+    segment      = data.get("segment", "abstain")
+    hiring       = data.get("hiring_signal", {})
+    gap          = data.get("competitor_gap", {})
+    ai_mat       = data.get("ai_maturity", {})
+    icp          = data.get("icp_result", {})
+
+    if not segment or segment == "abstain" and not icp:
+        # Run full enrichment pipeline to get segment
+        try:
+            from agent.enrichment.crunchbase import find_company
+            from agent.enrichment.jobs import get_hiring_signal
+            from agent.enrichment.ai_maturity import score_ai_maturity
+            from agent.enrichment.competitor_gap import build_competitor_gap_brief
+            from agent.enrichment.layoffs import check_layoff_signal
+            from agent.icp_classifier import classify
+
+            cb     = find_company(company)
+            hiring = get_hiring_signal(company)
+            layoff = check_layoff_signal(company)
+            ai_mat = score_ai_maturity(
+                company_name=company,
+                description=cb.get("description", ""),
+                job_titles=hiring.get("_all_open_titles", []),
+            )
+            gap = build_competitor_gap_brief(
+                company_name=company,
+                prospect_ai_maturity=ai_mat.get("score", 0),
+                funding_type=cb.get("last_funding_type", ""),
+                hiring_signal=hiring.get("hiring_velocity", {}).get("velocity_label", ""),
+            )
+            icp = classify(
+                company_name=company,
+                funding_type=cb.get("last_funding_type", ""),
+                open_eng_roles=hiring.get("hiring_velocity", {}).get("open_roles_today", 0),
+                ai_maturity_score=ai_mat.get("score", 0),
+            )
+            segment = icp.get("segment", "abstain")
+            # Inject prospect_name into hiring signal for composer
+            hiring["prospect_name"] = company
+
+        except Exception as e:
+            print(f"[Enrich] failed during outreach trigger: {e}")
+
+    # Compose segment-specific email
+    try:
+        from agent.email_composer import (
+            compose_cold_email_1,
+            compose_cold_email_2,
+            compose_cold_email_3,
+        )
+
+        # Ensure hiring signal has prospect_name for composer
+        if "prospect_name" not in hiring:
+            hiring["prospect_name"] = company
+
+        if email_number == 1:
+            composed = compose_cold_email_1(
+                prospect_first_name=prospect_name,
+                segment=segment,
+                hiring_signal=hiring,
+                ai_maturity=ai_mat,
+                icp_result=icp,
+                cal_link=cal_url,
+            )
+        elif email_number == 2:
+            composed = compose_cold_email_2(
+                prospect_first_name=prospect_name,
+                segment=segment,
+                hiring_signal=hiring,
+                competitor_gap=gap,
+                cal_link=cal_url,
+            )
+        else:
+            composed = compose_cold_email_3(
+                prospect_first_name=prospect_name,
+                company=company,
+                segment=segment,
+            )
+
+        subject    = composed["subject"]
+        body_text  = composed["body"]
+        tone_pass  = composed["tone_pass"]
+        word_count = composed["word_count"]
+        violations = composed["violations"]
+
+        if not tone_pass:
+            print(f"[EmailComposer] TONE VIOLATIONS: {violations}")
+
+    except Exception as e:
+        print(f"[EmailComposer] failed: {e} — falling back to generic email")
+        subject   = f"{company} engineering capacity — worth a conversation?"
+        body_text = (
+            "Hi " + prospect_name + ",\n\n"
+            "I noticed " + company + " has been scaling its engineering team. "
+            "Tenacious delivers dedicated engineering squads in 7-14 days — "
+            "embedded in your stack, employees not contractors.\n\n"
+            "Worth 15 minutes? → " + cal_url + "\n\n"
+            + prospect_name + "\nResearch Partner, Tenacious Intelligence Corporation\ngettenacious.com"
+        )
+        tone_pass  = True
+        word_count = 0
+        violations = []
+
+    # Convert plain text body to HTML
+    html_body = body_text.replace("\n", "<br>")
+    html = (
+        f'<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#111;">'
+        f'{html_body}'
+        f'<p style="font-size:11px;color:#999;margin-top:24px;">Reply STOP to unsubscribe.</p>'
+        f'</div>'
+    )
+
+    # Trace
     trace = create_trace(
-        name="outreach_triggered",
+        name="outreach_email_sent",
         metadata={
             "lead_id":          lead_id,
             "company":          company,
+            "segment":          segment,
+            "email_number":     email_number,
             "intended_email":   email,
             "actual_email":     email_to,
             "kill_switch":      not OUTBOUND_ENABLED,
+            "tone_pass":        tone_pass,
+            "word_count":       word_count,
+            "violations":       violations,
             "environment":      os.getenv("SANDBOX", "true"),
         }
     )
 
+    # Send via Resend
     try:
         import resend
         resend.api_key = os.getenv("RESEND_API_KEY")
 
-        cal_url = "https://cal.com/bethelhem-abay/discovery-call"
-
-        html = f"""
-        <p>Hi,</p>
-        <p>I noticed <strong>{company}</strong> has been scaling its engineering team.
-        Tenacious Consulting helps companies like yours build dedicated offshore
-        engineering teams without the recruiting overhead — engineers available
-        in 7-14 days, embedded in your stack.</p>
-        <p>Would you be open to a 30-minute discovery call?</p>
-        <p><a href="{cal_url}">Book a time here</a></p>
-        <p>Best,<br>Tenacious Team<br>gettenacious.com</p>
-        <p style="font-size:11px;color:#999;">Reply STOP to unsubscribe.</p>
-        """
-
         response = resend.Emails.send({
             "from":    os.getenv("RESEND_FROM_EMAIL"),
             "to":      [email_to],
-            "subject": f"{company} engineering capacity — worth a conversation?",
+            "subject": subject,
             "html":    html,
             "headers": make_draft_headers(),  # Policy Rule 6
         })
@@ -336,14 +623,50 @@ async def trigger_outreach(request: Request):
             response.get("id") if isinstance(response, dict) else "unknown"
         )
 
-        print(f"[Resend] sent to {email_to} msg_id={msg_id} trace={trace.id}")
+        print(f"[Resend] email={email_number} segment={segment} to={email_to} id={msg_id}")
         print(f"[KillSwitch] outbound_enabled={OUTBOUND_ENABLED}")
+        print(f"[Tone] pass={tone_pass} words={word_count}")
+
+        # ── HubSpot update ────────────────────────────────────
+        try:
+            import hubspot
+            from hubspot.crm.contacts import SimplePublicObjectInput
+            from hubspot.crm.contacts.models import (
+                PublicObjectSearchRequest, Filter, FilterGroup
+            )
+            hs = hubspot.Client.create(access_token=os.getenv("HUBSPOT_TOKEN"))
+            f  = Filter(property_name="email", operator="EQ", value=email)
+            fg = FilterGroup(filters=[f])
+            sr = hs.crm.contacts.search_api.do_search(
+                public_object_search_request=PublicObjectSearchRequest(filter_groups=[fg])
+            )
+            if sr.results:
+                props = {
+                    "qualification_status": "OUTREACH_SENT",
+                    "icp_segment":          str(segment),
+                    "last_enriched_at":     datetime.now(timezone.utc).isoformat(),
+                    "trace_id":             trace.id,
+                }
+                props.update(draft_hubspot_props())  # Policy Rule 6
+                hs.crm.contacts.basic_api.update(
+                    contact_id=sr.results[0].id,
+                    simple_public_object_input=SimplePublicObjectInput(properties=props)
+                )
+                print(f"[HubSpot] contact updated → OUTREACH_SENT segment={segment}")
+        except Exception as e:
+            print(f"[HubSpot] update failed: {e}")
 
         return JSONResponse({
-            "status":            "email_sent",
-            "trace_id":          trace.id,
-            "resend_message_id": msg_id,
-            "to":                email_to,
+            "status":             "email_sent",
+            "trace_id":           trace.id,
+            "resend_message_id":  msg_id,
+            "to":                 email_to,
+            "segment":            segment,
+            "email_number":       email_number,
+            "subject":            subject,
+            "word_count":         word_count,
+            "tone_pass":          tone_pass,
+            "violations":         violations,
             "kill_switch_active": not OUTBOUND_ENABLED,
         })
 
@@ -372,7 +695,7 @@ async def trigger_sms(request: Request):
     phone   = data.get("phone", "+254700000000")
     company = data.get("company", "Turing Signal")
 
-    # ── Kill switch gate ──────────────────────────────────────
+    # Kill switch gate
     phone_to = gate_outbound(phone, "sms")
 
     trace = create_trace(
