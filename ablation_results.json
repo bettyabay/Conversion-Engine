@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-04-24T20:45:00Z",
+  "note": "Variant C (full gate) and held-out results to be populated Saturday April 26 after final eval run.",
+  "mechanism": "Signal-confidence-aware phrasing gate",
+  "target_failure_mode": "Signal over-claiming (PROBE-B01, B02, B04, B05)",
+  "variants": {
+    "variant_a_baseline": {
+      "description": "No gate — asserts all claims regardless of confidence",
+      "pass_at_1": 0.5443,
+      "ci_95_lower": 0.4867,
+      "ci_95_upper": 0.6020,
+      "cost_per_task_usd": 0.0058,
+      "p95_latency_seconds": null,
+      "n_trials": 3,
+      "n_tasks_per_trial": 30,
+      "source": "eval/score_log.json — trainee dev-slice trials 1-3",
+      "model": "gpt-4o-mini via OpenRouter",
+      "status": "complete"
+    },
+    "variant_b_partial_gate": {
+      "description": "Velocity gate only — AI maturity and funding still asserted",
+      "pass_at_1": null,
+      "ci_95_lower": null,
+      "ci_95_upper": null,
+      "cost_per_task_usd": 0.0058,
+      "p95_latency_seconds": null,
+      "n_trials": null,
+      "source": "not run — included as design variant in method.md",
+      "status": "design_only"
+    },
+    "variant_c_full_gate": {
+      "description": "All three gates active — velocity, AI maturity, funding",
+      "pass_at_1": null,
+      "ci_95_lower": null,
+      "ci_95_upper": null,
+      "cost_per_task_usd": 0.0058,
+      "p95_latency_seconds": null,
+      "n_trials": 1,
+      "n_tasks": 20,
+      "source": "held-out trial — to run Saturday April 26",
+      "model": "claude-sonnet-4-6 or gpt-4o per updated challenge doc",
+      "status": "pending"
+    },
+    "variant_d_aggressive_abstention": {
+      "description": "Full gate + abstain when honesty_flags count > 2",
+      "pass_at_1": null,
+      "ci_95_lower": null,
+      "ci_95_upper": null,
+      "cost_per_task_usd": 0.0058,
+      "p95_latency_seconds": null,
+      "n_trials": null,
+      "source": "not run — included as design variant in method.md",
+      "status": "design_only"
+    }
+  },
+  "mentor_baseline": {
+    "pass_at_1": 0.7267,
+    "ci_95_lower": 0.6504,
+    "ci_95_upper": 0.7917,
+    "n_trials": 5,
+    "n_tasks": 30,
+    "source": "mentor-provided April 24 2026",
+    "git_commit": "d11a97072c49d093f7b5a3e4fe9da95b490d43ba"
+  },
+  "delta_a": {
+    "value": null,
+    "description": "variant_c_full_gate.pass_at_1 - variant_a_baseline.pass_at_1",
+    "p_value": null,
+    "significant_p05": null,
+    "note": "To be computed after Saturday held-out trial"
+  },
+  "delta_b": {
+    "value": null,
+    "description": "variant_c_full_gate.pass_at_1 - mentor_baseline.pass_at_1",
+    "note": "Delta B negative expected — mentor baseline uses 5 trials vs our 1. Not a failure per challenge doc."
+  },
+  "delta_c": {
+    "value": null,
+    "description": "variant_c_full_gate.pass_at_1 - 0.42 (published tau2-bench reference)",
+    "note": "Informational only per challenge doc"
+  }
+}
