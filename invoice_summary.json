@@ -1,0 +1,90 @@
+{
+  "generated_at": "2026-04-24T20:30:00Z",
+  "currency": "USD",
+  "budget_total": 10.00,
+  "budget_spent": 0.71,
+  "budget_remaining": 9.29,
+  "line_items": [
+    {
+      "id": "LLM-001",
+      "description": "tau2-bench dev-slice trial 1 (gpt-4o-mini via OpenRouter)",
+      "run_id": "baseline_dev_20260422_134932",
+      "amount": 0.17,
+      "tasks": 30,
+      "cost_per_task": 0.0058,
+      "date": "2026-04-22"
+    },
+    {
+      "id": "LLM-002",
+      "description": "tau2-bench dev-slice trial 2 (gpt-4o-mini via OpenRouter)",
+      "run_id": "baseline_dev_trial2_20260422_185153",
+      "amount": 0.17,
+      "tasks": 30,
+      "cost_per_task": 0.0059,
+      "date": "2026-04-22"
+    },
+    {
+      "id": "LLM-003",
+      "description": "tau2-bench dev-slice trial 3 (gpt-4o-mini via OpenRouter)",
+      "run_id": "baseline_dev_trial3_20260422_190106",
+      "amount": 0.18,
+      "tasks": 30,
+      "cost_per_task": 0.006,
+      "date": "2026-04-22"
+    },
+    {
+      "id": "LLM-004",
+      "description": "tau2-bench dev-slice trial 4 PARTIAL — credit limit hit at 20 tasks",
+      "run_id": "baseline_dev_trial4_20260422_192133",
+      "amount": 0.14,
+      "tasks": 20,
+      "cost_per_task": 0.0048,
+      "date": "2026-04-22"
+    },
+    {
+      "id": "LLM-005",
+      "description": "Smoke tests, enrichment pipeline testing, debug runs",
+      "amount": 0.05,
+      "tasks": null,
+      "date": "2026-04-22"
+    }
+  ],
+  "latency_results": {
+    "source": "latency_results.json",
+    "total_interactions": 78,
+    "endpoints": {
+      "enrich": {
+        "n": 20,
+        "p50_ms": 10640,
+        "p95_ms": 14923
+      },
+      "email_compose": {
+        "n": 20,
+        "p50_ms": 6101,
+        "p95_ms": 7062
+      },
+      "calcom_webhook": {
+        "n": 20,
+        "p50_ms": 8904,
+        "p95_ms": 10147
+      },
+      "sms_trigger": {
+        "n": 8,
+        "p50_ms": 5698,
+        "p95_ms": 7473
+      },
+      "health_check": {
+        "n": 10,
+        "p50_ms": 2048,
+        "p95_ms": 2067
+      }
+    }
+  },
+  "cost_per_qualified_lead": {
+    "llm_cost_per_enrich_run": 0.00,
+    "email_send_cost": 0.00,
+    "sms_send_cost_est": 0.001,
+    "total_per_lead": 0.001,
+    "notes": "Enrichment and email composer are rule-based — no LLM calls. Cost is near zero per lead at current scale. LLM cost only applies to tau2-bench evaluation runs, not production outreach."
+  }
+}
