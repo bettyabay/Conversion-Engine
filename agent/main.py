@@ -252,6 +252,7 @@ async def calcom_webhook(request: Request):
     stored_ai_score = 0
     stored_velocity = "unknown"
     stored_gap_note = ""
+    stored_company  = attendee_name  # fallback if HubSpot lookup fails
     icp_result      = {}
     hiring_signal   = {}
     ai_maturity     = {}
@@ -276,10 +277,12 @@ async def calcom_webhook(request: Request):
             contact_id = contact.id
             props      = contact.properties or {}
 
-            stored_segment  = props.get("icp_segment", "unknown")
-            stored_ai_score = int(props.get("ai_maturity_score", 0) or 0)
-            stored_velocity = props.get("hiring_signal_summary", "unknown")
-            stored_gap_note = props.get("competitor_gap_note", "")
+            stored_segment   = props.get("icp_segment", "unknown")
+            stored_ai_score  = int(props.get("ai_maturity_score", 0) or 0)
+            stored_velocity  = props.get("hiring_signal_summary", "unknown")
+            stored_gap_note  = props.get("competitor_gap_note", "")
+            # Use stored company name from HubSpot if available
+            stored_company   = props.get("company", "") or props.get("hs_company_name", "") or attendee_name
 
             # Reconstruct minimal enrichment dicts from stored props
             icp_result = {
@@ -340,7 +343,7 @@ async def calcom_webhook(request: Request):
             # Prospect info
             prospect_name       = first_name,
             prospect_title      = "VP Engineering",  # default; update if stored in HubSpot
-            prospect_company    = attendee_name,
+            prospect_company    = stored_company,
             call_datetime_utc   = meeting_time,
             call_datetime_local = meeting_time,
             delivery_lead       = delivery_lead,
