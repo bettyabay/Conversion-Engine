@@ -439,6 +439,91 @@ async def calcom_webhook(request: Request):
     })
 
 
+
+# ── Discover prospects as formatted table ─────────────────────
+@app.post("/discover/table")
+async def discover_table(request: Request):
+    """Returns discovered prospects as a readable ASCII table."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    segment         = data.get("segment", "all")
+    max_per_segment = int(data.get("max_per_segment", 5))
+
+    from agent.agents.prospect_discovery import (
+        discover_all, discover_segment_1, discover_segment_2,
+        discover_segment_3, discover_segment_4,
+    )
+
+    if segment == "all":
+        discovered    = discover_all(max_per_segment=max_per_segment)
+        all_prospects = (
+            discovered["segment_1"] + discovered["segment_2"] +
+            discovered["segment_3"] + discovered["segment_4"]
+        )
+    elif segment == "1": all_prospects = discover_segment_1(max_per_segment)
+    elif segment == "2": all_prospects = discover_segment_2(max_per_segment)
+    elif segment == "3": all_prospects = discover_segment_3(max_per_segment)
+    elif segment == "4": all_prospects = discover_segment_4(max_per_segment)
+    else: all_prospects = []
+
+    def get_signal(p):
+        parts = []
+        if p.get("has_layoff"):
+            parts.append(f"layoff {p.get('layoff_days_ago','?')}d ago")
+        if p.get("has_new_cto"):
+            parts.append(f"new CTO {p.get('cto_days_ago','?')}d ago")
+        ft = p.get("funding_type","")
+        if ft and ft not in ("None","unknown","other",""):
+            parts.append(ft)
+        return ", ".join(parts) if parts else "public data match"
+
+    def short_seg(s):
+        return (s or "").replace("segment_1_series_a_b","S1")\
+                        .replace("segment_2_mid_market_restructure","S2")\
+                        .replace("segment_3_leadership_transition","S3")\
+                        .replace("segment_4_specialized_capability","S4")
+
+    def short_src(s):
+        return (s or "").replace("layoffs_fyi_csv","layoffs.fyi")\
+                        .replace("crunchbase_odm","crunchbase")\
+                        .replace("linkedin_serpapi","linkedin")
+
+    if not all_prospects:
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse("No prospects found.")
+
+    rows = [{
+        "company": p.get("company",""),
+        "email":   p.get("email",""),
+        "seg":     short_seg(p.get("target_segment","")),
+        "source":  short_src(p.get("source","")),
+        "signal":  get_signal(p),
+    } for p in all_prospects]
+
+    cw = max(len(r["company"]) for r in rows)
+    ew = max(len(r["email"])   for r in rows)
+    sw = max(len(r["signal"])  for r in rows)
+
+    header  = f"{'Company':<{cw}}  {'Email':<{ew}}  Seg  {'Source':<12}  Signal"
+    divider = "-" * (cw + ew + sw + 30)
+    lines   = [
+        f"PROSPECTS DISCOVERED — {len(all_prospects)} total",
+        "",
+        header,
+        divider,
+    ]
+    for r in rows:
+        lines.append(
+            f"{r['company']:<{cw}}  {r['email']:<{ew}}  {r['seg']:<3}  "
+            f"{r['source']:<12}  {r['signal']}"
+        )
+
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse("\n".join(lines) + "\n")
+
 # ── Manual trigger — send outreach email ─────────────────────
 @app.post("/trigger/outreach")
 async def trigger_outreach(request: Request):
@@ -680,16 +765,19 @@ async def trigger_outreach(request: Request):
             status_code=500
         )
 
+from pydantic import BaseModel
 
+class SMSTrigger(BaseModel):
+    phone: str
+    company: str = ""
+    email: str = ""
+    
 # ── SMS trigger ───────────────────────────────────────────────
 @app.post("/trigger/sms")
-async def trigger_sms(request: Request):
-    """
-    Send an SMS outreach message.
-    POST body: {"phone": "...", "company": "..."}
-    Kill switch: routes to sink if TENACIOUS_OUTBOUND_ENABLED != true
-    SMS is secondary channel — warm leads only (policy/data_handling_policy.md)
-    """
+async def trigger_sms(body: SMSTrigger):
+    phone   = body.phone
+    company = body.company
+    email   = body.email
     try:
         data = await request.json()
     except Exception:

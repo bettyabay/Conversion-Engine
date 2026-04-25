@@ -367,15 +367,22 @@ def get_companies_by_funding(
     max_results: int = 50,
 ) -> list:
     """Get companies from ODM matching funding type criteria."""
-    rows       = _load_csv()
-    results    = []
-    ftypes     = funding_types or ["series_a", "series_b"]
+    rows    = _load_csv()
+    results = []
+    ftypes  = funding_types or ["series_a", "series_b"]
 
     for row in rows:
+        name = (row.get("name", "") or "").strip()
+        if not name:
+            continue
+
+        # Parse funding from the row directly
         ft, amount, date = _extract_funding(row)
+
         if ft in ftypes and amount > 0:
-            brief = _build_brief(row, row.get("name", ""))
+            brief = _build_brief(row, name)
             results.append(brief)
+
         if len(results) >= max_results:
             break
 

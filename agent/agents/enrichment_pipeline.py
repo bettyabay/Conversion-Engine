@@ -66,6 +66,14 @@ def run(
     )
     hiring["prospect_name"] = company
 
+    # Step 2b: LinkedIn signal enrichment
+    try:
+        from agent.enrichment.linkedin_signal import enrich_with_linkedin
+        hiring = enrich_with_linkedin(hiring, company)
+    except Exception as e:
+        print(f"[LinkedIn] Signal enrichment failed (non-blocking): {e}")
+
+        
     # ── Step 3: AI maturity ───────────────────────────────────
     from agent.enrichment.ai_maturity import score_ai_maturity
     maturity = score_ai_maturity(
