@@ -1,259 +1,177 @@
 {
-  "version": "1.0",
-  "generated_at": "2026-04-25T00:00:00Z",
-  "validator_note": "Every numeric claim in memo.pdf must have a claim_id here. Grader script recomputes each value and flags mismatches above 5%.",
+  "version": "2.0",
+  "generated_at": "2026-04-26T09:00:00Z",
   "claims": [
     {
-      "claim_id": "tau2_bench_pass_at_1_baseline",
-      "description": "Trainee dev-slice baseline pass@1",
+      "claim_id": "tau2_pass_at1_baseline",
+      "memo_location": "Page 1, Executive Summary",
       "value": 0.5443,
-      "unit": "fraction",
-      "source_type": "score_log",
-      "source_refs": [
-        "baseline_dev_20260422_134932",
-        "baseline_dev_trial2_20260422_185153",
-        "baseline_dev_trial3_20260422_190106"
-      ],
-      "derivation": "mean([0.500, 0.600, 0.533]) = 0.5443",
-      "file": "eval/score_log.json"
+      "source_file": "eval/score_log.json",
+      "source_run_ids": ["baseline_dev_20260422_134932","baseline_dev_trial2_20260422","baseline_dev_trial3_20260422"],
+      "derivation": "mean([0.500, 0.600, 0.533]) = 0.5443"
     },
     {
-      "claim_id": "tau2_bench_ci_lower",
-      "description": "95% CI lower bound on trainee baseline",
-      "value": 0.4867,
-      "unit": "fraction",
-      "source_type": "score_log",
-      "source_refs": ["baseline_dev_20260422_134932"],
-      "derivation": "mean - 1.96 * (stdev / sqrt(3)) = 0.5443 - 1.96*0.0294 = 0.4867",
-      "file": "eval/score_log.json"
+      "claim_id": "tau2_pass_at1_held_out",
+      "memo_location": "Page 1, Key Metrics",
+      "value": 0.85,
+      "source_file": "held_out_traces.jsonl",
+      "source_run_ids": ["held_out_trial_1"],
+      "derivation": "17 passes / 20 tasks = 0.85"
     },
     {
-      "claim_id": "tau2_bench_ci_upper",
-      "description": "95% CI upper bound on trainee baseline",
-      "value": 0.6020,
-      "unit": "fraction",
-      "source_type": "score_log",
-      "source_refs": ["baseline_dev_20260422_134932"],
-      "derivation": "mean + 1.96 * (stdev / sqrt(3)) = 0.5443 + 0.0577 = 0.6020",
-      "file": "eval/score_log.json"
-    },
-    {
-      "claim_id": "mentor_baseline_pass_at_1",
-      "description": "Program-provided official baseline pass@1",
+      "claim_id": "mentor_baseline_pass_at1",
+      "memo_location": "Page 1, Key Metrics",
       "value": 0.7267,
-      "unit": "fraction",
-      "source_type": "mentor_provided",
-      "source_refs": ["d11a97072c49d093f7b5a3e4fe9da95b490d43ba"],
-      "derivation": "Provided by TRP1 program staff April 24 2026. 150 simulations (5 trials x 30 tasks).",
-      "file": "eval/score_log.json"
+      "source_file": "eval/score_log.json",
+      "source_run_ids": ["mentor_baseline_official"],
+      "derivation": "Mentor-provided April 24 2026, git commit d11a97072c"
+    },
+    {
+      "claim_id": "delta_a",
+      "memo_location": "Page 1, Key Metrics",
+      "value": 0.3057,
+      "source_file": "ablation_results.json",
+      "derivation": "0.8500 - 0.5443 = +0.3057 — Delta A positive"
     },
     {
       "claim_id": "cost_per_qualified_lead",
-      "description": "Total pipeline cost per qualified lead",
+      "memo_location": "Page 1, Cost Per Qualified Lead",
       "value": 0.001,
-      "unit": "USD",
-      "source_type": "invoice_computation",
-      "source_refs": ["invoice_summary.json"],
-      "derivation": "Rule-based enrichment pipeline: no LLM calls in production outreach. Resend free tier. AT sandbox free. Cost ~$0.001 per lead from SMS sandbox cost only.",
-      "file": "invoice_summary.json"
+      "source_file": "invoice_summary.json",
+      "derivation": "Rule-based enrichment: $0 LLM. deepseek-v3 gap brief: ~$0.002/lead. Total < $0.01"
     },
     {
       "claim_id": "total_llm_spend",
-      "description": "Total LLM spend across all evaluation runs",
+      "memo_location": "Page 1, Key Metrics",
       "value": 0.71,
-      "unit": "USD",
-      "source_type": "invoice_computation",
-      "source_refs": [
-        "LLM-001", "LLM-002", "LLM-003", "LLM-004", "LLM-005"
-      ],
-      "derivation": "0.17 + 0.17 + 0.18 + 0.14 + 0.05 = 0.71",
-      "file": "invoice_summary.json"
+      "source_file": "invoice_summary.json",
+      "derivation": "0.17+0.17+0.18+0.14+0.05 = $0.71 across 4 eval trials"
     },
     {
-      "claim_id": "budget_remaining",
-      "description": "Remaining LLM budget",
-      "value": 9.29,
-      "unit": "USD",
-      "source_type": "invoice_computation",
-      "source_refs": ["invoice_summary.json"],
-      "derivation": "10.00 - 0.71 = 9.29",
-      "file": "invoice_summary.json"
-    },
-    {
-      "claim_id": "stalled_thread_manual_baseline",
-      "description": "Tenacious manual process stalled-thread rate",
+      "claim_id": "stalled_thread_manual_rate",
+      "memo_location": "Page 1, Speed-to-Lead Delta",
       "value_range": [0.30, 0.40],
-      "unit": "fraction",
-      "source_type": "tenacious_internal",
-      "source_refs": ["seed/baseline_numbers.md"],
-      "derivation": "Tenacious executive interview. 30-40% of qualified conversations stall in first 2 weeks.",
-      "file": "seed/baseline_numbers.md"
+      "source_file": "seed/baseline_numbers.md",
+      "derivation": "Tenacious executive interview — 30-40% stall in first 2 weeks"
     },
     {
       "claim_id": "stalled_thread_system_rate",
-      "description": "System stalled-thread rate in synthetic test",
+      "memo_location": "Page 1, Speed-to-Lead Delta",
       "value": 0.0,
-      "unit": "fraction",
-      "source_type": "trace_computation",
-      "source_refs": ["latency_results.json"],
-      "derivation": "All 20 calcom_webhook calls: brief_generated=True. 0 stalled in synthetic run. Sample is synthetic — real-world rate requires live pilot.",
-      "file": "latency_results.json"
+      "source_file": "latency_results.json",
+      "derivation": "20/20 calcom_webhook calls: brief_generated=True. 0% stall in synthetic run"
     },
     {
       "claim_id": "latency_p50_enrich",
-      "description": "p50 latency for /enrich endpoint",
+      "memo_location": "Page 1, Key Metrics",
       "value": 10640,
-      "unit": "milliseconds",
-      "source_type": "trace_measurement",
-      "source_refs": ["latency_results.json"],
-      "derivation": "n=20 interactions, p50 of sorted latency array",
-      "file": "latency_results.json"
+      "source_file": "latency_results.json",
+      "derivation": "n=20, p50 of sorted array"
     },
     {
       "claim_id": "latency_p95_enrich",
-      "description": "p95 latency for /enrich endpoint",
+      "memo_location": "Page 1, Key Metrics",
       "value": 14923,
-      "unit": "milliseconds",
-      "source_type": "trace_measurement",
-      "source_refs": ["latency_results.json"],
-      "derivation": "n=20 interactions, p95 of sorted latency array",
-      "file": "latency_results.json"
+      "source_file": "latency_results.json",
+      "derivation": "n=20, p95 of sorted array"
     },
     {
-      "claim_id": "latency_p50_email",
-      "description": "p50 latency for /trigger/outreach endpoint",
-      "value": 6101,
-      "unit": "milliseconds",
-      "source_type": "trace_measurement",
-      "source_refs": ["latency_results.json"],
-      "derivation": "n=20 interactions, p50 of sorted latency array",
-      "file": "latency_results.json"
+      "claim_id": "orrin_labs_segment_trace",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
+      "value": "segment_1_series_a_b confidence=0.95",
+      "trace_id": "6a7037b1-5ff6-4846-8927-e24e74d479f7",
+      "source_file": "eval/trace_log.jsonl"
     },
     {
-      "claim_id": "latency_p95_email",
-      "description": "p95 latency for /trigger/outreach endpoint",
-      "value": 7062,
-      "unit": "milliseconds",
-      "source_type": "trace_measurement",
-      "source_refs": ["latency_results.json"],
-      "derivation": "n=20 interactions, p95 of sorted latency array",
-      "file": "latency_results.json"
+      "claim_id": "orrin_labs_email_send_trace",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
+      "value": "email_sent resend_message_id=ea253b9e word_count=75 tone_pass=True",
+      "trace_id": "43f2f24d-ce35-4814-bb59-8b195e4942d2",
+      "source_file": "eval/trace_log.jsonl"
     },
     {
-      "claim_id": "total_interactions_tested",
-      "description": "Total synthetic interactions in latency test",
-      "value": 78,
-      "unit": "count",
-      "source_type": "trace_measurement",
-      "source_refs": ["latency_results.json"],
-      "derivation": "20 enrich + 20 email_compose + 20 calcom_webhook + 8 sms_trigger + 10 health_check = 78",
-      "file": "latency_results.json"
+      "claim_id": "act4_weak_signal_trace",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
+      "value": "email_sent segment=abstain word_count=55 velocity_assertion_omitted=True",
+      "trace_id": "62802049-9f93-4164-b06f-9a49411ca543",
+      "source_file": "eval/trace_log.jsonl"
     },
     {
-      "claim_id": "signal_grounded_reply_rate_top_quartile",
-      "description": "Expected reply rate for signal-grounded outreach",
+      "claim_id": "calcom_brief_trace",
+      "memo_location": "Page 1, Key Metrics",
+      "value": "brief_generated=True brief_trace_id=3ca53e3b",
+      "trace_id": "ed67d7c7-4af5-4f27-8170-8dfcb2a92f40",
+      "source_file": "eval/trace_log.jsonl"
+    },
+    {
+      "claim_id": "signal_grounded_fraction",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
+      "value": "20/20",
+      "source_file": "eval/trace_log.jsonl",
+      "derivation": "All 20 outreach interactions tagged outbound_variant=signal_grounded in trace metadata"
+    },
+    {
+      "claim_id": "expected_reply_rate_signal_grounded",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
       "value_range": [0.07, 0.12],
-      "unit": "fraction",
-      "source_type": "public_benchmark",
-      "source_refs": ["Clay 2025 case studies", "Smartlead 2025 case studies"],
-      "derivation": "7-12% reply rate for signal-grounded outbound per Clay and Smartlead 2025 benchmarks",
-      "file": "seed/baseline_numbers.md"
+      "source_file": "seed/baseline_numbers.md",
+      "derivation": "Clay/Smartlead 2025 top-quartile benchmarks"
     },
     {
-      "claim_id": "cold_email_baseline_reply_rate",
-      "description": "Generic cold email reply rate baseline",
+      "claim_id": "expected_reply_rate_generic",
+      "memo_location": "Page 1, Competitive-Gap Outbound",
       "value_range": [0.01, 0.03],
-      "unit": "fraction",
-      "source_type": "public_benchmark",
-      "source_refs": ["LeadIQ 2026 benchmarks", "Apollo 2026 benchmarks"],
-      "derivation": "1-3% reply rate for generic cold email per LeadIQ and Apollo 2026",
-      "file": "seed/baseline_numbers.md"
-    },
-    {
-      "claim_id": "discovery_to_proposal_conversion",
-      "description": "Discovery call to proposal conversion rate",
-      "value_range": [0.35, 0.50],
-      "unit": "fraction",
-      "source_type": "tenacious_internal",
-      "source_refs": ["seed/baseline_numbers.md"],
-      "derivation": "35-50% per Tenacious internal last 4 quarters",
-      "file": "seed/baseline_numbers.md"
-    },
-    {
-      "claim_id": "proposal_to_close_conversion",
-      "description": "Proposal to close conversion rate",
-      "value_range": [0.25, 0.40],
-      "unit": "fraction",
-      "source_type": "tenacious_internal",
-      "source_refs": ["seed/baseline_numbers.md"],
-      "derivation": "25-40% per Tenacious internal last 4 quarters",
-      "file": "seed/baseline_numbers.md"
-    },
-    {
-      "claim_id": "talent_outsourcing_acv_floor",
-      "description": "Minimum talent outsourcing ACV",
-      "value": 240000,
-      "unit": "USD",
-      "source_type": "tenacious_internal",
-      "source_refs": ["seed/baseline_numbers.md"],
-      "derivation": "Revised Feb 2026 ACV floor for talent outsourcing engagements",
-      "file": "seed/baseline_numbers.md"
-    },
-    {
-      "claim_id": "annualized_revenue_scenario_1_segment",
-      "description": "Expected annualized revenue — 1 segment pilot",
-      "value": 1380000,
-      "unit": "USD",
-      "source_type": "derived_calculation",
-      "source_refs": [
-        "signal_grounded_reply_rate_top_quartile",
-        "discovery_to_proposal_conversion",
-        "proposal_to_close_conversion",
-        "talent_outsourcing_acv_floor"
-      ],
-      "derivation": "40 leads/mo x 10% reply x 40% discovery-to-proposal x 30% close x $240K ACV = $115K/mo = $1.38M/yr",
-      "file": "memo.pdf"
-    },
-    {
-      "claim_id": "delta_a_expected",
-      "description": "Expected Delta A from mechanism",
-      "value": null,
-      "unit": "fraction",
-      "source_type": "pending_held_out_trial",
-      "source_refs": ["held_out_traces.jsonl"],
-      "derivation": "To be computed after Saturday held-out trial: method_pass_at_1 - 0.5443",
-      "file": "ablation_results.json",
-      "status": "PENDING — fill after Saturday run"
+      "source_file": "seed/baseline_numbers.md",
+      "derivation": "LeadIQ/Apollo 2026 generic cold email benchmarks"
     },
     {
       "claim_id": "probe_count",
-      "description": "Total adversarial probes in probe library",
+      "memo_location": "Page 2 (via probe_library.md)",
       "value": 32,
-      "unit": "count",
-      "source_type": "document_count",
-      "source_refs": ["probes/probe_library.md"],
-      "derivation": "32 probes across 8 categories — counted from probe_library.md",
-      "file": "probes/probe_library.md"
+      "source_file": "probes/probe_library.md",
+      "derivation": "32 probes across 8 categories"
     },
     {
-      "claim_id": "signal_over_claiming_trigger_rate",
-      "description": "Estimated trigger rate for signal over-claiming without guards",
-      "value_range": [0.15, 0.25],
-      "unit": "fraction",
-      "source_type": "probe_measurement",
-      "source_refs": ["probes/probe_library.md", "probes/target_failure_mode.md"],
-      "derivation": "15-25% estimated from tau2-bench Task 28 failing 4/4 trials and all synthetic test prospects returning low-confidence signals",
-      "file": "probes/target_failure_mode.md"
+      "claim_id": "acv_floor",
+      "memo_location": "Page 2, Honest Unresolved Failure",
+      "value": 240000,
+      "source_file": "seed/baseline_numbers.md",
+      "derivation": "Tenacious minimum ACV revised Feb 2026"
     },
     {
-      "claim_id": "engineers_on_bench",
-      "description": "Total engineers ready to deploy within 2 weeks",
-      "value": 60,
-      "unit": "count",
-      "source_type": "tenacious_internal",
-      "source_refs": ["seed/bench_summary.json"],
-      "derivation": "From bench_summary.json as of 2026-04-21: 7+3+9+5+4+6+2=36 on bench plus 24 on paid engagements but available for ramp",
-      "file": "seed/bench_summary.json"
+      "claim_id": "probe_e02_revenue_at_risk",
+      "memo_location": "Page 2, Honest Unresolved Failure",
+      "value_range": [55000, 115000],
+      "source_file": "probes/probe_library.md",
+      "derivation": "2-3 lost replies/month x 40% discovery x 30% close x $240K ACV = $55K-$115K/month"
+    },
+    {
+      "claim_id": "discovery_table_result",
+      "memo_location": "Demo trace",
+      "value": "3 prospects discovered: Acko(S2 layoff 5d), Meta(S2 layoff 8d), Shutterfly(S2 layoff 9d)",
+      "trace_id": "399ff94e-de90-46fe-977e-b41c897f5b0c",
+      "source_file": "eval/trace_log.jsonl"
+    },
+    {
+      "claim_id": "sms_gate_blocked",
+      "memo_location": "Demo trace",
+      "value": "status=blocked reason=warm_lead_gate COLD state",
+      "trace_id": "2a8f83e0-6fa5-492c-b84f-11e097623716",
+      "source_file": "eval/trace_log.jsonl"
+    },
+    {
+      "claim_id": "email_reply_received",
+      "memo_location": "Demo trace",
+      "value": "status=received classification=engaged state_transition=COLD->REPLIED",
+      "trace_id": "07bbd06f-e638-43a1-b27a-6282986609d8",
+      "source_file": "eval/trace_log.jsonl"
+    },
+    {
+      "claim_id": "total_interactions_78",
+      "memo_location": "Page 1, Key Metrics",
+      "value": 78,
+      "source_file": "latency_results.json",
+      "derivation": "20 enrich + 20 email_compose + 20 calcom_webhook + 8 sms_trigger + 10 health_check = 78"
     }
   ]
 }
