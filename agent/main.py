@@ -764,37 +764,61 @@ async def enrich_prospect(request: Request):
         metadata={"company": company, "email": email}
     )
 
-    from agent.enrichment.crunchbase import find_company
-    from agent.enrichment.jobs import get_hiring_signal
-    from agent.enrichment.ai_maturity import score_ai_maturity
-    from agent.enrichment.competitor_gap import build_competitor_gap_brief
-    from agent.enrichment.layoffs import check_layoff_signal
-    from agent.icp_classifier import classify
+    # Read optional signal overrides from POST body
+    override_funding_type    = data.get("funding_type", None)
+    override_funding_amount  = data.get("funding_amount_usd", None)
+    override_funding_days    = data.get("funding_days_ago", None)
+    override_headcount       = data.get("headcount", None)
+    override_open_eng_roles  = data.get("open_eng_roles", None)
+    override_has_layoff      = data.get("has_layoff", None)
+    override_layoff_days     = data.get("layoff_days_ago", None)
+    override_layoff_pct      = data.get("layoff_percentage", None)
+    override_has_new_cto     = data.get("has_new_cto", None)
+    override_cto_days        = data.get("cto_days_ago", None)
+    override_ai_maturity     = data.get("ai_maturity_score", None)
+    override_specialist_days = data.get("specialist_role_open_days", None)
 
-    cb_brief  = find_company(company)
-    hiring    = get_hiring_signal(company, cb_brief.get("website"))
-    layoff    = check_layoff_signal(company)
-    maturity  = score_ai_maturity(
-        company_name=company,
-        description=cb_brief.get("description", ""),
-        job_titles=hiring.get("_all_open_titles", []),
+    # ResearchAgent — full enrichment pipeline with signal overrides
+    from agent.agents.enrichment_pipeline import run as research_run
+    research = research_run(
+        company=company, email=email,
+        funding_type=override_funding_type,
+        funding_amount_usd=override_funding_amount,
+        funding_days_ago=override_funding_days,
+        headcount=override_headcount,
+        open_eng_roles=override_open_eng_roles,
+        has_layoff=override_has_layoff,
+        layoff_days_ago=override_layoff_days,
+        layoff_percentage=override_layoff_pct,
+        has_new_cto=override_has_new_cto,
+        cto_days_ago=override_cto_days,
+        ai_maturity_score=override_ai_maturity,
+        specialist_role_open_days=override_specialist_days,
     )
-    gap = build_competitor_gap_brief(
-        company_name=company,
-        prospect_ai_maturity=maturity.get("score", 0),
-        funding_type=cb_brief.get("last_funding_type", ""),
-        hiring_signal=hiring.get("hiring_velocity", {}).get("velocity_label", ""),
-        has_layoff=layoff.get("has_layoff", False),
-    )
-    icp = classify(
-        company_name=company,
-        funding_type=cb_brief.get("last_funding_type", ""),
-        funding_days_ago=999,
-        headcount=0,
-        open_eng_roles=hiring.get("hiring_velocity", {}).get("open_roles_today", 0),
-        has_layoff=layoff.get("has_layoff", False),
-        ai_maturity_score=maturity.get("score", 0),
-    )
+
+    cb_brief = research["crunchbase"]
+    hiring   = research["hiring_signal"]
+    layoff   = research["layoff_signal"]
+    maturity = research["ai_maturity"]
+    icp      = research["icp"]
+
+    # InsightAgent — LLM competitor gap (falls back to rule-based)
+    try:
+        from agent.agents.competitor_analyst import run as insight_run
+        gap = insight_run(
+            company_name=company,
+            hiring_signal_brief=hiring,
+            sector=cb_brief.get("industry", "Software / SaaS"),
+            use_eval_model=False,
+        )
+    except Exception as e:
+        print(f"[InsightAgent] failed: {e} — using rule-based fallback")
+        from agent.enrichment.competitor_gap import build_competitor_gap_brief
+        gap = build_competitor_gap_brief(
+            company_name=company,
+            prospect_ai_maturity=maturity.get("score", 0),
+            funding_type=cb_brief.get("last_funding_type", ""),
+        )
 
     # HubSpot write-back
     try:
